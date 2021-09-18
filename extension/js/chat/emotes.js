@@ -4,6 +4,7 @@ import {utils} from '../utils/utils.js';
 
 const bttvGlobalJson = "https://api.betterttv.net/3/cached/emotes/global";
 const bttvChannelJson = "https://api.betterttv.net/3/cached/users/twitch/";
+const sevenTvChannelJson = "https://api.7tv.app/v2/users/";
 
 
 class Emotes{
@@ -11,11 +12,12 @@ class Emotes{
         this.urls = {
             twitch: "https://static-cdn.jtvnw.net/emoticons/v1/",
             bttv: "https://cdn.betterttv.net/emote/",
-            ffz: "https://api.frankerfacez.com/v1/room/"
+            ffz: "https://api.frankerfacez.com/v1/room/",
         };
         this.emotes = {
             "ffz": new Map(),
-            "bttv": new Map()
+            "bttv": new Map(),
+            "7tv": new Map(),
         };
         this.scale = 1;
     }
@@ -49,15 +51,18 @@ class Emotes{
     }
 
     getEmoteUrl(name){
-        let type, id, url;
+        let type, emote, url;
         for(type in this.emotes){
-            id = this.emotes[type].get(name);
-            if(id === undefined){continue;}
+            emote = this.emotes[type].get(name);
+            if(emote === undefined){continue;}
             if(type === "ffz"){
-                url = this.getFFZscaleUrl(id);
+                url = this.getFFZscaleUrl(emote);
+            }
+            else if (type === "7tv") {
+                url = emote['urls'][this.scale];
             }
             else{
-                url = this.getSrcUrl(id, type);
+                url = this.getSrcUrl(emote, type);
             }
             return url;
         }
@@ -105,6 +110,22 @@ class Emotes{
         this.convertBttvEmotes(channelEmotes);
     }
 
+    convertChannel7TvEmotes(json){
+        if(!json)return;
+        for (let emote of json) {
+            this.emotes['7tv'].set(emote['name'], {
+                id: emote.id,
+                name: emote.name,
+                urls: {
+                    1: emote.urls[0][1],
+                    2: emote.urls[1][1],
+                    3: emote.urls[2][1],
+                    4: emote.urls[3][1]
+                },
+            });
+        }
+    }
+
     loadEmoteData(channel, channelId){
         let url = this.urls.ffz;
         if(channelId){
@@ -131,8 +152,11 @@ class Emotes{
         let bttvChannelPromise = utils.fetch(bttvChannelJson + channelId).then(json=>{
             this.convertChannelBttvEmotes(json);
         });
+        let seventvChannelPromise = utils.fetch(sevenTvChannelJson + channelId + "/emotes").then(json=>{
+            this.convertChannel7TvEmotes(json);
+        });
 
-        return Promise.all([ffzChannelPromise, bttvChannelPromise, bttvGlobalPromise]);
+        return Promise.all([seventvChannelPromise, ffzChannelPromise, bttvChannelPromise, bttvGlobalPromise]);
     }
 }
 
